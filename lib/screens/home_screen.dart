@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../models/banana_entry.dart';
+
 import '../services/database_service.dart';
 import '../services/nutrition_service.dart';
 import '../services/preferences_service.dart';
@@ -17,7 +17,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   double _todayCount = 0.0;
-  List<BananaEntry> _todayTimestamps = [];
   double _dailyGoal = 2.0;
   bool _loading = true;
   String? _error;
@@ -51,11 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadToday() async {
     final count = await widget.db.getTodayCount();
-    final timestamps = await widget.db.getTodayTimestamps();
     if (mounted) {
       setState(() {
         _todayCount = count;
-        _todayTimestamps = timestamps;
         _loading = false;
       });
     }
@@ -64,11 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _handleUndo() async {
     await widget.db.undoLastLog();
     final count = await widget.db.getTodayCount();
-    final timestamps = await widget.db.getTodayTimestamps();
     if (mounted) {
       setState(() {
         _todayCount = count;
-        _todayTimestamps = timestamps;
       });
     }
   }
@@ -171,13 +166,11 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await widget.db.logBanana(amount);
       final count = await widget.db.getTodayCount();
-      final timestamps = await widget.db.getTodayTimestamps();
 
       if (!mounted) return;
 
       setState(() {
         _todayCount = count;
-        _todayTimestamps = timestamps;
       });
     } catch (e) {
       print('[HomeScreen] Log banana error: $e');
@@ -191,17 +184,86 @@ class _HomeScreenState extends State<HomeScreen> {
     return count.toStringAsFixed(2);
   }
 
-  Widget _buildGoalProgress() {
-    final progress = (_todayCount / _dailyGoal).clamp(0.0, 1.0);
-    final reached = _todayCount >= _dailyGoal;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
-    return Builder(
-      builder: (context) {
-        final w = MediaQuery.of(context).size.width;
-        final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Banana Tracker'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Daily Goal',
+            onPressed: _showGoalDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'History',
+            onPressed: () {
+              Navigator.pushNamed(context, '/history');
+            },
+          ),
+        ],
+      ),
+      body: _buildBody(theme),
+    );
+  }
+
+  Widget _buildBody(ThemeData theme) {
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: theme.colorScheme.error),
+          ),
+        ),
+      );
+    }
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        final w = constraints.maxWidth;
+        final countText = _formatBananaCount(_todayCount);
+        final progress = (_todayCount / _dailyGoal).clamp(0.0, 1.0);
+        final reached = _todayCount >= _dailyGoal;
+        final goalLabel = reached
+            ? '🎉 Goal reached!'
+            : '${_formatBananaCount(_todayCount)} / ${_formatBananaCount(_dailyGoal)} bananas';
+
         return Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
+            // 1. Count number
+            Text(
+              countText,
+              style: TextStyle(
+                fontSize: h * 0.12,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFFFFC107),
+              ),
+            ),
+
+            // 2. "X bananas today" subtitle
+            Text(
+              '$_todayCount bananas today',
+              style: TextStyle(
+                fontSize: h * 0.022,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+
+            // 3. Progress bar
             SizedBox(
               width: w * 0.6,
               child: ClipRRect(
@@ -215,13 +277,56 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+
+            // 4. "X / Y bananas" label
             Text(
-              reached
-                  ? '🎉 Goal reached!'
-                  : '${_formatBananaCount(_todayCount)} / ${_formatBananaCount(_dailyGoal)} bananas',
-              style: theme.textTheme.bodySmall?.copyWith(
+              goalLabel,
+              style: TextStyle(
+                fontSize: h * 0.018,
                 color: reached ? Colors.green : null,
+              ),
+            ),
+
+            // 5. Nutrition card
+            SizedBox(
+              height: h * 0.19,
+              child: _buildNutritionCard(theme),
+            ),
+
+            // 6. Half + Quarter row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _ScaleTap(
+                  onTap: () => _logBanana(0.5),
+                  child: Image.asset(
+                    'assets/images/half.png',
+                    width: w * 0.30,
+                    height: w * 0.30,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                SizedBox(width: w * 0.14),
+                _ScaleTap(
+                  onTap: () => _logBanana(0.25),
+                  child: Image.asset(
+                    'assets/images/quarter.png',
+                    width: w * 0.30,
+                    height: w * 0.30,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
+            ),
+
+            // 7. Full banana
+            _ScaleTap(
+              onTap: () => _logBanana(1.0),
+              child: Image.asset(
+                'assets/images/full.png',
+                width: w * 0.38,
+                height: w * 0.38,
+                fit: BoxFit.contain,
               ),
             ),
           ],
@@ -230,17 +335,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNutritionCard() {
+  Widget _buildNutritionCard(ThemeData theme) {
     final n = _nutrition;
     final percent = _nutritionService.potassiumPercent(n.potassium);
-    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               "Today's Nutrition",
@@ -248,20 +353,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Row(
               children: [
-                Expanded(child: _nutritionStat('Calories', '${n.calories.toStringAsFixed(0)} kcal')),
+                Expanded(
+                  child: _nutritionStat(
+                      'Calories', '${n.calories.toStringAsFixed(0)} kcal'),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _nutritionStat('Potassium', '${n.potassium.toStringAsFixed(0)} mg\n($percent% DV)')),
+                Expanded(
+                  child: _nutritionStat('Potassium',
+                      '${n.potassium.toStringAsFixed(0)} mg\n($percent% DV)'),
+                ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Row(
               children: [
-                Expanded(child: _nutritionStat('Carbs', '${n.carbs.toStringAsFixed(0)} g')),
+                Expanded(
+                  child: _nutritionStat(
+                      'Carbs', '${n.carbs.toStringAsFixed(0)} g'),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _nutritionStat('Sugar', '${n.sugar.toStringAsFixed(0)} g')),
+                Expanded(
+                  child: _nutritionStat(
+                      'Sugar', '${n.sugar.toStringAsFixed(0)} g'),
+                ),
               ],
             ),
           ],
@@ -291,121 +408,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildOutlinedCount(String text) {
-    return Stack(
-      children: [
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 96,
-            fontWeight: FontWeight.w800,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 3
-              ..color = Colors.black,
-          ),
-        ),
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 96,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFFFFC107),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Banana Tracker'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Daily Goal',
-            onPressed: _showGoalDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: 'History',
-            onPressed: () {
-              Navigator.pushNamed(context, '/history');
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(_error!,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: theme.colorScheme.error)),
-            )
-          else ...[
-            _buildOutlinedCount(
-                _loading ? '...' : _formatBananaCount(_todayCount)),
-            const SizedBox(height: 12),
-            if (!_loading) _buildGoalProgress(),
-            if (!_loading) ...[
-              const SizedBox(height: 14),
-              _buildNutritionCard(),
-            ],
-            const SizedBox(height: 48),
-            Builder(
-              builder: (context) {
-                final w = MediaQuery.of(context).size.width;
-                final iconSize = w * 0.35;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _ScaleTap(
-                          onTap: () => _logBanana(0.5),
-                          child: Image.asset('assets/images/half.png',
-                              width: iconSize, height: iconSize, fit: BoxFit.contain),
-                        ),
-                        const SizedBox(width: 40),
-                        _ScaleTap(
-                          onTap: () => _logBanana(0.25),
-                          child: Image.asset('assets/images/quarter.png',
-                              width: iconSize, height: iconSize, fit: BoxFit.contain),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    Center(
-                      child: _ScaleTap(
-                        onTap: () => _logBanana(1.0),
-                        child: Image.asset('assets/images/full.png',
-                            width: iconSize, height: iconSize, fit: BoxFit.contain),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-          ],
-        ),
-      ),
     );
   }
 }
