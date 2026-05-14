@@ -68,6 +68,13 @@ class DatabaseService {
     });
   }
 
+  Future<void> undoLastLog() async {
+    final db = await database;
+    await db.rawDelete(
+      'DELETE FROM banana_logs WHERE id = (SELECT MAX(id) FROM banana_logs)',
+    );
+  }
+
   Future<List<BananaEntry>> getTodayTimestamps() async {
     final db = await database;
     final result = await db.rawQuery(

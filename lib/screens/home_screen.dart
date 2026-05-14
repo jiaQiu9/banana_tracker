@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../models/banana_entry.dart';
 import '../services/database_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -12,8 +15,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   double _todayCount = 0.0;
+  List<BananaEntry> _todayTimestamps = [];
   bool _loading = true;
   String? _error;
+  Timer? _undoTimer;
 
   @override
   void initState() {
@@ -21,40 +26,86 @@ class _HomeScreenState extends State<HomeScreen> {
     _init();
   }
 
+  @override
+  void dispose() {
+    _undoTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _init() async {
     try {
       await widget.db.cleanupOldEntries();
-      await _loadCount();
+      await _loadToday();
     } catch (e) {
       print('[HomeScreen] Init error: $e');
       if (mounted) setState(() => _error = e.toString());
     }
   }
 
-  Future<void> _loadCount() async {
-    try {
-      final count = await widget.db.getTodayCount();
-      if (mounted) {
-        setState(() {
-          _todayCount = count;
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      print('[HomeScreen] Load count error: $e');
-      if (mounted) setState(() => _error = e.toString());
+  Future<void> _loadToday() async {
+    final count = await widget.db.getTodayCount();
+    final timestamps = await widget.db.getTodayTimestamps();
+    if (mounted) {
+      setState(() {
+        _todayCount = count;
+        _todayTimestamps = timestamps;
+        _loading = false;
+      });
     }
   }
 
+  Future<void> _handleUndo() async {
+    await widget.db.undoLastLog();
+    final count = await widget.db.getTodayCount();
+    final timestamps = await widget.db.getTodayTimestamps();
+    if (mounted) {
+      setState(() {
+        _todayCount = count;
+        _todayTimestamps = timestamps;
+      });
+    }
+  }
+
+  void _showUndoSnackBar() {
+    _undoTimer?.cancel();
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('Logged 🍌'),
+        duration: const Duration(days: 1),
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: const Color(0xFFFFC107),
+          onPressed: () {
+            _undoTimer?.cancel();
+            _handleUndo();
+          },
+        ),
+      ),
+    );
+
+    _undoTimer = Timer(const Duration(seconds: 5), () {
+      messenger.clearSnackBars();
+    });
+  }
+
   Future<void> _logBanana(double amount) async {
+    _showUndoSnackBar();
+
     try {
       await widget.db.logBanana(amount);
       final count = await widget.db.getTodayCount();
-      if (mounted) {
-        setState(() {
-          _todayCount = count;
-        });
-      }
+      final timestamps = await widget.db.getTodayTimestamps();
+
+      if (!mounted) return;
+
+      setState(() {
+        _todayCount = count;
+        _todayTimestamps = timestamps;
+      });
     } catch (e) {
       print('[HomeScreen] Log banana error: $e');
     }
