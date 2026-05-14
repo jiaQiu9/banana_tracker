@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/banana_entry.dart';
 import '../services/database_service.dart';
+import '../services/preferences_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final DatabaseService db;
@@ -16,6 +17,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   double _todayCount = 0.0;
   List<BananaEntry> _todayTimestamps = [];
+  double _dailyGoal = 2.0;
   bool _loading = true;
   String? _error;
   Timer? _undoTimer;
@@ -35,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _init() async {
     try {
       await widget.db.cleanupOldEntries();
+      _dailyGoal = await PreferencesService().getDailyGoal();
       await _loadToday();
     } catch (e) {
       print('[HomeScreen] Init error: $e');
@@ -92,6 +95,72 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _showGoalDialog() {
+    final originalGoal = _dailyGoal;
+    var tempGoal = _dailyGoal;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Daily Goal'),
+              content: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove),
+                    onPressed: tempGoal > 0.25
+                        ? () {
+                            tempGoal = double.parse(
+                                (tempGoal - 0.25).toStringAsFixed(2));
+                            setDialogState(() {});
+                          }
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    _formatBananaCount(tempGoal),
+                    style: const TextStyle(
+                        fontSize: 32, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () {
+                      tempGoal = double.parse(
+                          (tempGoal + 0.25).toStringAsFixed(2));
+                      setDialogState(() {});
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    _dailyGoal = originalGoal;
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _dailyGoal = tempGoal;
+                    PreferencesService().setDailyGoal(_dailyGoal);
+                    Navigator.pop(context);
+                    setState(() {});
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _logBanana(double amount) async {
     _showUndoSnackBar();
 
@@ -116,6 +185,45 @@ class _HomeScreenState extends State<HomeScreen> {
       return count.toInt().toString();
     }
     return count.toStringAsFixed(2);
+  }
+
+  Widget _buildGoalProgress() {
+    final progress = (_todayCount / _dailyGoal).clamp(0.0, 1.0);
+    final reached = _todayCount >= _dailyGoal;
+
+    return Builder(
+      builder: (context) {
+        final w = MediaQuery.of(context).size.width;
+        final theme = Theme.of(context);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: w * 0.6,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  color: reached ? Colors.green : const Color(0xFFFFC107),
+                  backgroundColor:
+                      const Color(0xFFFFC107).withValues(alpha: 0.2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              reached
+                  ? '🎉 Goal reached!'
+                  : '${_formatBananaCount(_todayCount)} / ${_formatBananaCount(_dailyGoal)} bananas',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: reached ? Colors.green : null,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildOutlinedCount(String text) {
@@ -154,6 +262,11 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Daily Goal',
+            onPressed: _showGoalDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'History',
             onPressed: () {
@@ -179,6 +292,8 @@ class _HomeScreenState extends State<HomeScreen> {
           else ...[
             _buildOutlinedCount(
                 _loading ? '...' : _formatBananaCount(_todayCount)),
+            const SizedBox(height: 12),
+            if (!_loading) _buildGoalProgress(),
             const SizedBox(height: 48),
             Builder(
               builder: (context) {
