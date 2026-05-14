@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/banana_entry.dart';
 import '../services/database_service.dart';
+import '../services/nutrition_service.dart';
 import '../services/preferences_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,6 +22,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _error;
   Timer? _undoTimer;
+  final _nutritionService = NutritionService();
+
+  NutritionTotals get _nutrition => _nutritionService.calculate(_todayCount);
 
   @override
   void initState() {
@@ -226,6 +230,70 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildNutritionCard() {
+    final n = _nutrition;
+    final percent = _nutritionService.potassiumPercent(n.potassium);
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Today's Nutrition",
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _nutritionStat('Calories', '${n.calories.toStringAsFixed(0)} kcal')),
+                const SizedBox(width: 12),
+                Expanded(child: _nutritionStat('Potassium', '${n.potassium.toStringAsFixed(0)} mg\n($percent% DV)')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _nutritionStat('Carbs', '${n.carbs.toStringAsFixed(0)} g')),
+                const SizedBox(width: 12),
+                Expanded(child: _nutritionStat('Sugar', '${n.sugar.toStringAsFixed(0)} g')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _nutritionStat(String label, String value) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildOutlinedCount(String text) {
     return Stack(
       children: [
@@ -294,6 +362,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 _loading ? '...' : _formatBananaCount(_todayCount)),
             const SizedBox(height: 12),
             if (!_loading) _buildGoalProgress(),
+            if (!_loading) ...[
+              const SizedBox(height: 14),
+              _buildNutritionCard(),
+            ],
             const SizedBox(height: 48),
             Builder(
               builder: (context) {

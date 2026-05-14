@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/banana_entry.dart';
 import '../services/database_service.dart';
+import '../services/nutrition_service.dart';
 
 class HistoryScreen extends StatefulWidget {
   final DatabaseService db;
@@ -16,6 +17,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<BananaEntry>? _monthEntries;
   String? _error;
   late DateTime _selectedMonth;
+  final _nutritionService = NutritionService();
+
+  double get _monthTotalCount {
+    if (_monthEntries == null) return 0.0;
+    double total = 0.0;
+    for (final entry in _monthEntries!) {
+      total += entry.amount;
+    }
+    return total;
+  }
 
   @override
   void initState() {
@@ -85,6 +96,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     padding: const EdgeInsets.all(16),
                     children: [
                       _buildWeeklySummary(theme),
+                      if (_monthEntries != null) ...[
+                        const SizedBox(height: 10),
+                        _buildNutritionRow(theme),
+                      ],
                       const SizedBox(height: 24),
                       _buildMonthlyCalendar(theme),
                     ],
@@ -161,6 +176,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 )),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNutritionRow(ThemeData theme) {
+    final n = _nutritionService.calculate(_monthTotalCount);
+
+    return Text(
+      '🔥 ${n.calories.toStringAsFixed(0)} kcal'
+      '  |  ⚡ ${n.potassium.toStringAsFixed(0)} mg K'
+      '  |  🌾 ${n.carbs.toStringAsFixed(1)} g carbs'
+      '  |  🍬 ${n.sugar.toStringAsFixed(1)} g sugar',
+      textAlign: TextAlign.center,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
       ),
     );
   }
