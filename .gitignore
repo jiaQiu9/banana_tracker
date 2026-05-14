@@ -46,3 +46,4 @@ app.*.map.json
 
 
 .claude
+android/key.properties
