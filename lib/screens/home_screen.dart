@@ -184,6 +184,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return count.toStringAsFixed(2);
   }
 
+  String _portionLabel(double amount) {
+    if (amount == 0.25) return '1/4';
+    if (amount == 0.5) return '1/2';
+    if (amount == 1.0) return '1';
+    return _formatBananaCount(amount);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -254,16 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // 2. "X bananas today" subtitle
-            Text(
-              '$_todayCount bananas today',
-              style: TextStyle(
-                fontSize: h * 0.022,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-
-            // 3. Progress bar
+            // 2. Progress bar
             SizedBox(
               width: w * 0.6,
               child: ClipRRect(
@@ -288,50 +286,58 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             // 5. Nutrition card
-            SizedBox(
-              height: h * 0.19,
+            Flexible(
               child: _buildNutritionCard(theme),
             ),
 
-            // 6. Half + Quarter row
+            // 6. Banana icons row
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _ScaleTap(
-                  onTap: () => _logBanana(0.5),
-                  child: Image.asset(
-                    'assets/images/half.png',
-                    width: w * 0.30,
-                    height: w * 0.30,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                SizedBox(width: w * 0.14),
-                _ScaleTap(
-                  onTap: () => _logBanana(0.25),
-                  child: Image.asset(
-                    'assets/images/quarter.png',
-                    width: w * 0.30,
-                    height: w * 0.30,
-                    fit: BoxFit.contain,
-                  ),
-                ),
+                _buildBananaButton(0.25, 'assets/images/quarter.png', w),
+                const SizedBox(width: 8),
+                _buildBananaButton(0.5, 'assets/images/half.png', w),
+                const SizedBox(width: 8),
+                _buildBananaButton(1.0, 'assets/images/full.png', w),
               ],
-            ),
-
-            // 7. Full banana
-            _ScaleTap(
-              onTap: () => _logBanana(1.0),
-              child: Image.asset(
-                'assets/images/full.png',
-                width: w * 0.38,
-                height: w * 0.38,
-                fit: BoxFit.contain,
-              ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildBananaButton(double amount, String assetPath, double w) {
+    final theme = Theme.of(context);
+    return _ScaleTap(
+      onTap: () => _logBanana(amount),
+      child: Container(
+        width: w * 0.20,
+        clipBehavior: Clip.none,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Transform.scale(
+              scale: 1.5,
+              child: Image.asset(
+                assetPath,
+                width: w * 0.20,
+                height: w * 0.20,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              _portionLabel(amount),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -400,7 +406,7 @@ class _HomeScreenState extends State<HomeScreen> {
             color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 1),
         Text(
           value,
           style: theme.textTheme.bodyMedium?.copyWith(

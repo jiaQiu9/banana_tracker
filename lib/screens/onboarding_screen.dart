@@ -42,7 +42,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFBEB),
       body: SafeArea(
         child: Column(
           children: [
@@ -68,6 +67,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildWelcomeSlide() {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -75,22 +75,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           const Text('🍌', style: TextStyle(fontSize: 80)),
           const SizedBox(height: 32),
-          const Text(
+          Text(
             'Welcome to\nBanana Tracker',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF5D4037),
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Track how many bananas you eat each day,\nsimply and beautifully.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
-              color: Color(0xFF795548),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -99,6 +99,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildHowToLogSlide() {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -127,22 +128,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
           const SizedBox(height: 32),
-          const Text(
+          Text(
             'Log Your Bananas',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF5D4037),
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Tap the full banana for a whole banana,\nhalf banana for half, or quarter for a small piece.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
-              color: Color(0xFF795548),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
         ],

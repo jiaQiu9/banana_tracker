@@ -92,17 +92,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ? const Center(child: CircularProgressIndicator())
               : RefreshIndicator(
                   onRefresh: _loadMonthData,
-                  child: ListView(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
-                    children: [
-                      _buildWeeklySummary(theme),
-                      if (_monthEntries != null) ...[
-                        const SizedBox(height: 10),
-                        _buildNutritionRow(theme),
+                    child: Column(
+                      children: [
+                        _buildWeeklySummary(theme),
+                        if (_monthEntries != null) ...[
+                          const SizedBox(height: 10),
+                          _buildNutritionRow(theme),
+                        ],
+                        const SizedBox(height: 24),
+                        _buildMonthlyCalendar(theme),
                       ],
-                      const SizedBox(height: 24),
-                      _buildMonthlyCalendar(theme),
-                    ],
+                    ),
                   ),
                 ),
     );
@@ -219,7 +221,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
           children: [
             Row(
@@ -321,15 +323,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
             ),
             if (bananas > 0)
-              Text(
-                '🍌 ${_formatAmount(bananas)}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: isToday
-                      ? theme.colorScheme.onPrimary
-                      : theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text('🍌', style: const TextStyle(fontSize: 10)),
           ],
         ),
       ),

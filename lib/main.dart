@@ -47,7 +47,9 @@ class BananaTrackerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Banana Tracker',
       debugShowCheckedModeBanner: false,
-      theme: _buildTheme(),
+      theme: _buildLightTheme(),
+      darkTheme: _buildDarkTheme(),
+      themeMode: ThemeMode.system,
       initialRoute: initialRoute,
       routes: {
         '/home': (context) => HomeScreen(db: db),
@@ -58,7 +60,7 @@ class BananaTrackerApp extends StatelessWidget {
     );
   }
 
-  ThemeData _buildTheme() {
+  ThemeData _buildLightTheme() {
     return ThemeData(
       colorScheme: ColorScheme.fromSeed(
         seedColor: const Color(0xFFFFC107),
@@ -73,6 +75,32 @@ class BananaTrackerApp extends StatelessWidget {
       ),
       cardTheme: CardThemeData(
         color: const Color(0xFFFFF8E1),
+        elevation: 2,
+      ),
+    );
+  }
+
+  ThemeData _buildDarkTheme() {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFFFFC107),
+      brightness: Brightness.dark,
+    ).copyWith(
+      surface: const Color(0xFF2A2618),
+      onSurface: const Color(0xFFF5E6C8),
+      outline: const Color(0xFF3D3825),
+    );
+
+    return ThemeData(
+      colorScheme: colorScheme,
+      useMaterial3: true,
+      scaffoldBackgroundColor: const Color(0xFF1C1A14),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF252318),
+        foregroundColor: Color(0xFFF5E6C8),
+        elevation: 0,
+      ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF2A2618),
         elevation: 2,
       ),
     );
