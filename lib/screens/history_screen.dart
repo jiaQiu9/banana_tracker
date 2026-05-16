@@ -49,7 +49,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         });
       }
     } catch (e) {
-      print('[HistoryScreen] Load month error: $e');
+      debugPrint('[HistoryScreen] Load month error: $e');
       if (mounted) setState(() => _error = e.toString());
     }
   }

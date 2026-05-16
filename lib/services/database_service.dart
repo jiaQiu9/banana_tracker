@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/banana_entry.dart';
@@ -20,7 +21,7 @@ class DatabaseService {
   Future<Database> _init() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'banana_tracker.db');
-    print('[DB] Opening database at: $path');
+    debugPrint('[DB] Opening database at: $path');
     return openDatabase(path,
         version: _dbVersion,
         onCreate: _onCreate,
@@ -196,6 +197,27 @@ class DatabaseService {
   Future<void> cleanupOldEntries() async {
     // No cleanup needed. All historical records must be preserved
     // for streak tracking, history screen, and nutrition summaries.
+  }
+
+  Future<double> getWeekTotal(DateTime weekStart) async {
+    final db = await database;
+    final start = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    final end = start.add(const Duration(days: 7));
+    // debugPrint('[WeekTotal] $start → $end');
+    final result = await db.rawQuery(
+      'SELECT COALESCE(SUM(amount), 0) as total FROM banana_logs WHERE eaten_at >= ? AND eaten_at < ?',
+      [start.toIso8601String(), end.toIso8601String()],
+    );
+    final total = (result.first['total'] as num).toDouble();
+    // debugPrint('[WeekTotal] result = $total');
+    return total;
+  }
+
+  static DateTime lastMonday(DateTime from) {
+    // Dart: Mon=1 ... Sat=6, Sun=7
+    // Treat Sunday as day 7 of the current week (not the start of a new one)
+    final daysFromMonday = (from.weekday - 1) % 7;
+    return DateTime(from.year, from.month, from.day - daysFromMonday);
   }
 
   String _dateKey(DateTime d) =>

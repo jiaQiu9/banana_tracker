@@ -32,6 +32,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Timer? _midnightTimer;
   String _lastLoadedDate = '';
   TimeOfDay? _reminderTime;
+  double _thisWeekTotal = 0;
+  double _lastWeekTotal = 0;
   final _nutritionService = NutritionService();
 
   NutritionTotals get _nutrition => _nutritionService.calculate(_todayCount);
@@ -41,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _init();
+    _loadWeeklyTrend();
     _scheduleMidnightRefresh();
   }
 
@@ -115,11 +118,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (mounted) setState(() => _streak = streak);
   }
 
+  Future<void> _loadWeeklyTrend() async {
+    final thisMonday = DatabaseService.lastMonday(DateTime.now());
+    final lastMonday = thisMonday.subtract(const Duration(days: 7));
+    final thisWeek = await widget.db.getWeekTotal(thisMonday);
+    final lastWeek = await widget.db.getWeekTotal(lastMonday);
+    if (mounted) {
+      setState(() {
+        _thisWeekTotal = thisWeek;
+        _lastWeekTotal = lastWeek;
+      });
+    }
+  }
+
   Future<void> _handleUndo() async {
     await widget.db.undoLastLog();
     final count = await widget.db.getTodayCount();
     if (mounted) setState(() => _todayCount = count);
     await _refreshStreak();
+    await _loadWeeklyTrend();
   }
 
   void _showUndoSnackBar() {
@@ -368,6 +385,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _todayCount = count;
       });
       await _refreshStreak();
+      await _loadWeeklyTrend();
     } catch (e) {
       debugPrint('[HomeScreen] Log banana error: $e');
     }
@@ -470,6 +488,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   SizedBox(height: h * 0.004),
                 ] else
                   SizedBox(height: h * 0.001),
+                SizedBox(height: s.spaceSm),
+                _buildWeeklyTrendLine(s),
                 SizedBox(
                   width: w * 0.6,
                   child: ClipRRect(
@@ -578,7 +598,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildPlaceholderButton(AppSizing s, double w, double h) {
-    return Container(
+    return SizedBox(
       width: s.iconXl,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -590,6 +610,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: SizedBox(height: h * 0.016),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyTrendLine(AppSizing s) {
+    final diff = _thisWeekTotal - _lastWeekTotal;
+    if (_lastWeekTotal == 0 && _thisWeekTotal == 0) return const SizedBox.shrink();
+    final String arrow;
+    final Color color;
+    final String label;
+    if (diff > 0) {
+      arrow = '↑';
+      color = Colors.green;
+      label = '${diff.toStringAsFixed(2)} more than last week';
+    } else if (diff < 0) {
+      arrow = '↓';
+      color = Colors.redAccent;
+      label = '${diff.abs().toStringAsFixed(2)} fewer than last week';
+    } else {
+      arrow = '→';
+      color = Colors.grey;
+      label = 'Same as last week';
+    }
+    return Text(
+      '$arrow $label',
+      style: TextStyle(
+        fontSize: s.fontSm,
+        color: color,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
