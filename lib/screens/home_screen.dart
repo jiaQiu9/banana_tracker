@@ -221,6 +221,71 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _showSettingsSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.dark_mode_outlined),
+                title: const Text('Dark Mode'),
+                trailing: Switch(
+                  value: isDark,
+                  onChanged: (_) {
+                    widget.onToggleTheme();
+                    Navigator.pop(ctx);
+                  },
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.notifications_outlined),
+                title: const Text('Daily Reminder'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showReminderDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('Daily Goal'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showGoalDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.history),
+                title: const Text('History'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.pushNamed(this.context, '/history');
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showReminderDialog() {
     showDialog(
       context: context,
@@ -235,12 +300,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   : const Text(
                       'Set a daily time to be reminded to log your bananas.'),
               actions: [
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await NotificationService().scheduleTestNotification();
-                  },
-                  child: const Text('Test (5s)'),
+                Visibility(
+                  visible: false,
+                  maintainState: true,
+                  maintainAnimation: true,
+                  maintainSize: true,
+                  child: TextButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await NotificationService().scheduleTestNotification();
+                    },
+                    child: const Text('Test (5s)'),
+                  ),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
@@ -326,36 +397,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
-            ),
-            tooltip: Theme.of(context).brightness == Brightness.dark
-                ? 'Light mode'
-                : 'Dark mode',
-            onPressed: widget.onToggleTheme,
-          ),
-          IconButton(
-            icon: Icon(
-              _reminderTime != null
-                  ? Icons.notifications_active
-                  : Icons.notifications_none,
-            ),
-            tooltip: 'Daily Reminder',
-            onPressed: _showReminderDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.celebration),
-            tooltip: 'Daily Goal',
-            onPressed: _showGoalDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: 'History',
-            onPressed: () {
-              Navigator.pushNamed(context, '/history');
-            },
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => _showSettingsSheet(context),
           ),
         ],
       ),

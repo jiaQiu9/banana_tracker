@@ -260,7 +260,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           SizedBox(height: s.spaceXl),
           Text(
-            'Set Your Daily Goal',
+            'Start Recording Your Bananas.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: s.font2xl,
@@ -270,7 +270,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           SizedBox(height: s.spaceMd),
           Text(
-            'Tap the 🎉 icon to set how many bananas\nyou want to eat each day. Track your\nprogress with the bar below your count —\nit turns green when you hit your goal!',
+            'Start recording your bananas.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: s.fontLg,
