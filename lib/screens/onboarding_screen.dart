@@ -22,6 +22,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(() {
+      final page = _pageController.page?.round() ?? 0;
+      if (page != _currentPage) {
+        setState(() => _currentPage = page);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
@@ -45,24 +56,95 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final s = AppSizing.of(context);
     return Scaffold(
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (page) {
-                  setState(() => _currentPage = page);
-                },
-                children: [
-                  _buildWelcomeSlide(),
-                  _buildHowToLogSlide(),
-                  _buildDailyGoalSlide(),
-                ],
+            PageView(
+              controller: _pageController,
+              onPageChanged: (page) {
+                setState(() => _currentPage = page);
+              },
+              children: [
+                _buildWelcomeSlide(),
+                _buildHowToLogSlide(),
+                _buildDailyGoalSlide(),
+              ],
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: s.buttonHeight + s.spaceLg + s.spaceMd),
+                child: _buildDotIndicators(),
               ),
             ),
-            _buildDotIndicators(),
-            _buildBottomButton(),
-            SizedBox(height: s.spaceXl),
+            if (_currentPage > 0)
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: s.spaceLg,
+                      bottom: s.spaceLg,
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _pageController.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFC107),
+                        foregroundColor: Colors.black87,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(s.spaceMd),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: s.spaceLg,
+                          vertical: s.spaceXs,
+                        ),
+                        elevation: 0,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Icon(Icons.arrow_back_rounded, size: s.iconMd),
+                    ),
+                  ),
+                ),
+              ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.bottomRight,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: s.spaceLg,
+                    bottom: s.spaceLg,
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _currentPage < 2 ? _onNext : _onGetStarted,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFC107),
+                      foregroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(s.spaceMd),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: s.spaceLg,
+                        vertical: s.spaceXs,
+                      ),
+                      elevation: 0,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Icon(
+                      _currentPage < 2
+                          ? Icons.arrow_forward_rounded
+                          : Icons.check_rounded,
+                      size: s.iconMd,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -225,40 +307,4 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildBottomButton() {
-    final s = AppSizing.of(context);
-    if (_currentPage < 2) {
-      return ElevatedButton(
-        onPressed: _onNext,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFC107),
-          foregroundColor: const Color(0xFF5D4037),
-          padding: EdgeInsets.symmetric(horizontal: s.spaceXl, vertical: s.buttonHeight),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Text(
-          'Next →',
-          style: TextStyle(fontSize: s.fontLg, fontWeight: FontWeight.w600),
-        ),
-      );
-    }
-
-    return ElevatedButton(
-      onPressed: _onGetStarted,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFFFC107),
-        foregroundColor: const Color(0xFF5D4037),
-        padding: EdgeInsets.symmetric(horizontal: s.spaceXl, vertical: s.buttonHeight),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: Text(
-        'Get Started 🍌',
-        style: TextStyle(fontSize: s.fontLg, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
 }
