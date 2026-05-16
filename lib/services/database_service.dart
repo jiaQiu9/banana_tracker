@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/banana_entry.dart';
 
 class DatabaseService {
+  static const int _dbVersion = 1;
   static Database? _db;
   static Future<Database>? _dbFuture;
   static final DatabaseService _instance = DatabaseService._();
@@ -20,7 +21,11 @@ class DatabaseService {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'banana_tracker.db');
     print('[DB] Opening database at: $path');
-    return openDatabase(path, version: 3, onCreate: _onCreate, onUpgrade: _onUpgrade);
+    return openDatabase(path,
+        version: _dbVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+        onDowngrade: _onUpgrade);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -33,28 +38,15 @@ class DatabaseService {
     ''');
   }
 
+  // DATABASE VERSION HISTORY
+  // v1 — baseline: banana_logs (id, eaten_at TEXT, amount REAL)
+  // v2 — (future)
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute('''
-        CREATE TABLE banana_logs (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          eaten_at TEXT NOT NULL
-        )
-      ''');
-      final oldRows = await db.query('entries');
-      for (final row in oldRows) {
-        final date = row['date'] as String;
-        final count = row['count'] as int;
-        for (int i = 0; i < count; i++) {
-          await db.insert('banana_logs', {
-            'eaten_at': '${date}T12:00:00.000',
-          });
-        }
-      }
-      await db.execute('DROP TABLE entries');
+      // future migration
     }
     if (oldVersion < 3) {
-      await db.execute("ALTER TABLE banana_logs ADD COLUMN amount REAL NOT NULL DEFAULT 1.0");
+      // future migration
     }
   }
 

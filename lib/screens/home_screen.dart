@@ -6,6 +6,7 @@ import '../services/database_service.dart';
 import '../services/notification_service.dart';
 import '../services/nutrition_service.dart';
 import '../services/preferences_service.dart';
+import '../utils/sizing.dart';
 
 class HomeScreen extends StatefulWidget {
   final DatabaseService db;
@@ -154,12 +155,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     showDialog(
       context: context,
       builder: (context) {
+        final s = AppSizing.of(context);
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
+              constraints: const BoxConstraints(minWidth: 300),
               title: const Text('Daily Goal'),
               content: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.remove),
@@ -171,13 +175,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           }
                         : null,
                   ),
-                  const SizedBox(width: 16),
-                  Text(
-                    _formatBananaCount(tempGoal),
-                    style: const TextStyle(
-                        fontSize: 32, fontWeight: FontWeight.bold),
+                  SizedBox(
+                    width: s.dialogValueWidth,
+                    child: Text(
+                      _formatBananaCount(tempGoal),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.visible,
+                      style: TextStyle(
+                          fontSize: s.font3xl, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  const SizedBox(width: 16),
                   IconButton(
                     icon: const Icon(Icons.add),
                     onPressed: () {
@@ -356,10 +364,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildBody(ThemeData theme) {
+    final s = AppSizing.of(context);
+
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: s.spaceLg),
           child: Text(
             _error!,
             textAlign: TextAlign.center,
@@ -422,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     borderRadius: BorderRadius.circular(w * 0.01),
                     child: LinearProgressIndicator(
                       value: progress,
-                      minHeight: h * 0.007,
+                      minHeight: s.progressBarH,
                       color: reached ? Colors.green : const Color(0xFFFFC107),
                       backgroundColor:
                           const Color(0xFFFFC107).withValues(alpha: 0.2),
@@ -438,7 +448,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
                 SizedBox(height: h * 0.03),
-                _buildNutritionCard(theme, w, h),
+                _buildNutritionCard(theme, s, w, h),
                 SizedBox(height: h * 0.06),
                 Column(
                   mainAxisSize: MainAxisSize.min,
@@ -446,33 +456,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildBananaButton(0.25, 'assets/images/quarter.png', w, h),
+                        _buildBananaButton(0.25, 'assets/images/quarter.png', s, w, h),
                         SizedBox(width: w * 0.001),
-                        _buildBananaButton(0.5, 'assets/images/half.png', w, h),
+                        _buildBananaButton(0.5, 'assets/images/half.png', s, w, h),
                         SizedBox(width: w * 0.001),
-                        _buildBananaButton(1.0, 'assets/images/full.png', w, h),
+                        _buildBananaButton(1.0, 'assets/images/full.png', s, w, h),
                       ],
                     ),
                     SizedBox(height: h * 0.015),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildPlaceholderButton(w, h),
+                        _buildPlaceholderButton(s, w, h),
                         SizedBox(width: w * 0.02),
-                        _buildPlaceholderButton(w, h),
+                        _buildPlaceholderButton(s, w, h),
                         SizedBox(width: w * 0.02),
-                        _buildPlaceholderButton(w, h),
+                        _buildPlaceholderButton(s, w, h),
                       ],
                     ),
                     SizedBox(height: h * 0.015),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildPlaceholderButton(w, h),
+                        _buildPlaceholderButton(s, w, h),
                         SizedBox(width: w * 0.02),
-                        _buildPlaceholderButton(w, h),
+                        _buildPlaceholderButton(s, w, h),
                         SizedBox(width: w * 0.02),
-                        _buildPlaceholderButton(w, h),
+                        _buildPlaceholderButton(s, w, h),
                       ],
                     ),
                   ],
@@ -486,12 +496,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildBananaButton(double amount, String assetPath, double w, double h) {
+  Widget _buildBananaButton(double amount, String assetPath, AppSizing s, double w, double h) {
     final theme = Theme.of(context);
     return _ScaleTap(
       onTap: () => _logBanana(amount),
       child: Container(
-        width: w * 0.20,
+        width: s.iconXl,
         clipBehavior: Clip.none,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -500,8 +510,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               scale: 1.5,
               child: Image.asset(
                 assetPath,
-                width: w * 0.20,
-                height: w * 0.20,
+                width: s.iconXl,
+                height: s.iconXl,
                 fit: BoxFit.contain,
               ),
             ),
@@ -523,13 +533,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildPlaceholderButton(double w, double h) {
+  Widget _buildPlaceholderButton(AppSizing s, double w, double h) {
     return Container(
-      width: w * 0.20,
+      width: s.iconXl,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: w * 0.20, height: w * 0.20),
+          SizedBox(width: s.iconXl, height: s.iconXl),
           SizedBox(height: h * 0.001),
           Transform.translate(
             offset: Offset(0, -(w * 0.0125)),
@@ -540,7 +550,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildNutritionCard(ThemeData theme, double w, double h) {
+  Widget _buildNutritionCard(ThemeData theme, AppSizing s, double w, double h) {
     final n = _nutrition;
     final percent = _nutritionService.potassiumPercent(n.potassium);
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/banana_entry.dart';
 import '../services/database_service.dart';
 import '../services/nutrition_service.dart';
+import '../utils/sizing.dart';
 
 class HistoryScreen extends StatefulWidget {
   final DatabaseService db;
@@ -72,6 +73,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = AppSizing.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -81,7 +83,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       body: _error != null
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(s.spaceLg),
                 child: Text(_error!,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium
@@ -93,15 +95,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
               : RefreshIndicator(
                   onRefresh: _loadMonthData,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(s.spaceMd),
                     child: Column(
                       children: [
                         _buildWeeklySummary(theme),
                         if (_monthEntries != null) ...[
-                          const SizedBox(height: 10),
+                          SizedBox(height: s.spaceSm),
                           _buildNutritionRow(theme),
                         ],
-                        const SizedBox(height: 24),
+                        SizedBox(height: s.spaceLg),
                         _buildMonthlyCalendar(theme),
                       ],
                     ),
@@ -111,6 +113,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildWeeklySummary(ThemeData theme) {
+    final s = AppSizing.of(context);
     final totals = _weeklyTotals!;
     final monthLabel =
         '${_monthName(_selectedMonth.month)} ${_selectedMonth.year}';
@@ -143,22 +146,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(s.spaceLg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.calendar_today, color: theme.colorScheme.primary, size: 20),
-                const SizedBox(width: 8),
+                Icon(Icons.calendar_today, color: theme.colorScheme.primary, size: s.iconSm),
+                SizedBox(width: s.spaceSm),
                 Text('Weekly Summary',
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w700)),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: s.spaceSm),
             ...sorted.map((e) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: EdgeInsets.symmetric(vertical: s.spaceXs),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -167,7 +170,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       Row(
                         children: [
                           const Text('🍌'),
-                          const SizedBox(width: 4),
+                          SizedBox(width: s.spaceXs),
                           Text(_formatAmount(e.value),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600)),
@@ -198,6 +201,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildMonthlyCalendar(ThemeData theme) {
+    final s = AppSizing.of(context);
     final now = DateTime.now();
     final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
     final firstWeekday = DateTime(_selectedMonth.year, _selectedMonth.month, 1).weekday;
@@ -221,7 +225,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: EdgeInsets.fromLTRB(s.spaceMd, s.spaceMd, s.spaceMd, s.spaceLg),
         child: Column(
           children: [
             Row(
@@ -244,7 +248,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: s.spaceSm),
             Row(
               children: dayHeaders.map((d) => Expanded(
                     child: Center(
@@ -256,7 +260,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   )).toList(),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: s.spaceSm),
             for (var week = 0; week < numWeeks; week++)
               Row(
                 children: List.generate(7, (col) {
@@ -300,6 +304,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     required bool isToday,
     VoidCallback? onTap,
   }) {
+    final s = AppSizing.of(context);
     final bananas = count ?? 0.0;
 
     return GestureDetector(
@@ -312,19 +317,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 shape: BoxShape.circle,
               )
             : null,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$day',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: isToday ? FontWeight.w700 : null,
-                color: isToday ? theme.colorScheme.onPrimary : null,
+        child: ClipRect(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$day',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontSize: s.fontXs,
+                  fontWeight: isToday ? FontWeight.w700 : null,
+                  color: isToday ? theme.colorScheme.onPrimary : null,
+                  height: 1.1,
+                ),
               ),
-            ),
-            if (bananas > 0)
-              Text('🍌', style: const TextStyle(fontSize: 10)),
-          ],
+              if (bananas > 0)
+                Text('🍌', style: TextStyle(fontSize: s.fontXs, height: 1.1)),
+            ],
+          ),
         ),
       ),
     );
@@ -375,8 +384,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
+        final s = AppSizing.of(sheetContext);
         return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          padding: EdgeInsets.fromLTRB(s.spaceLg, s.spaceLg, s.spaceLg, s.spaceLg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,15 +401,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: s.spaceMd),
               Text(title,
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 16),
+              SizedBox(height: s.spaceMd),
               if (timestamps.isEmpty)
                 Center(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    padding: EdgeInsets.symmetric(vertical: s.spaceXl),
                     child: Text('No bananas yet today!',
                         style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurface
@@ -414,7 +424,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     itemBuilder: (_, i) {
                       final entry = timestamps[i];
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: EdgeInsets.symmetric(vertical: s.spaceXs),
                         child: Text(
                           '🍌 ${_amountLabel(entry.amount)}  · ${_formatTime(entry.eatenAt)}',
                           style: theme.textTheme.bodyLarge,
@@ -423,7 +433,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     },
                   ),
                 ),
-              const SizedBox(height: 8),
+              SizedBox(height: s.spaceSm),
             ],
           ),
         );
@@ -433,20 +443,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _emptyCard(
       ThemeData theme, String title, String message, IconData icon) {
+    final s = AppSizing.of(context);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        padding: EdgeInsets.symmetric(vertical: s.spaceXl, horizontal: s.spaceLg),
         child: Column(
           children: [
             Icon(icon,
-                size: 48, color: theme.colorScheme.onSurface.withAlpha(60)),
-            const SizedBox(height: 12),
+                size: s.iconXl, color: theme.colorScheme.onSurface.withAlpha(60)),
+            SizedBox(height: s.spaceSm),
             Text(title,
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
+            SizedBox(height: s.spaceXs),
             Text(message,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(

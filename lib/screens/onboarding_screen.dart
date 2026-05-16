@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/preferences_service.dart';
+import '../utils/sizing.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final DatabaseService db;
@@ -41,6 +42,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppSizing.of(context);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -60,7 +62,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             _buildDotIndicators(),
             _buildBottomButton(),
-            const SizedBox(height: 32),
+            SizedBox(height: s.spaceXl),
           ],
         ),
       ),
@@ -68,29 +70,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildWelcomeSlide() {
+    final s = AppSizing.of(context);
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: s.spaceXl),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text('🍌', style: TextStyle(fontSize: 80)),
-          const SizedBox(height: 32),
+          SizedBox(height: s.spaceXl),
           Text(
             'Welcome to\nBanana Tracker',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 26,
+              fontSize: s.font2xl,
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: s.spaceMd),
           Text(
             'Track how many bananas you eat each day,\nsimply and beautifully.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: s.fontLg,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
@@ -100,53 +103,58 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildHowToLogSlide() {
+    final s = AppSizing.of(context);
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: s.spaceXl),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/images/full.png',
-                  width: 80,
-                  height: 80,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/images/full.png',
+                      width: s.iconXl * 1.5,
+                      height: s.iconXl * 1.5,
+                    ),
+                    SizedBox(width: s.spaceMd),
+                    Image.asset(
+                      'assets/images/half.png',
+                      width: s.iconXl * 1.5,
+                      height: s.iconXl * 1.5,
+                    ),
+                    SizedBox(width: s.spaceMd),
+                    Image.asset(
+                      'assets/images/quarter.png',
+                      width: s.iconXl * 1.5,
+                      height: s.iconXl * 1.5,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Image.asset(
-                  'assets/images/half.png',
-                  width: 80,
-                  height: 80,
-                ),
-                const SizedBox(width: 16),
-                Image.asset(
-                  'assets/images/quarter.png',
-                  width: 80,
-                  height: 80,
-                ),
-              ],
-            ),
+              );
+            },
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: s.spaceXl),
           Text(
             'Log Your Bananas',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 26,
+              fontSize: s.font2xl,
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: s.spaceMd),
           Text(
             'Tap the full banana for a whole banana,\nhalf banana for half, or quarter for a small piece.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: s.fontLg,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
@@ -156,9 +164,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildDailyGoalSlide() {
+    final s = AppSizing.of(context);
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: s.spaceXl),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -167,22 +176,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             size: 80,
             color: Color(0xFFFFC107),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: s.spaceXl),
           Text(
             'Set Your Daily Goal',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 26,
+              fontSize: s.font2xl,
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: s.spaceMd),
           Text(
             'Tap the 🎉 icon to set how many bananas\nyou want to eat each day. Track your\nprogress with the bar below your count —\nit turns green when you hit your goal!',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: s.fontLg,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
@@ -192,17 +201,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildDotIndicators() {
+    final s = AppSizing.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: EdgeInsets.symmetric(vertical: s.spaceMd),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(3, (index) {
           final isActive = index == _currentPage;
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: isActive ? 24 : 8,
-            height: 8,
+            margin: EdgeInsets.symmetric(horizontal: s.spaceXs),
+            width: isActive ? s.spaceLg : s.spaceSm,
+            height: s.spaceSm,
             decoration: BoxDecoration(
               color: isActive
                   ? const Color(0xFFFFC107)
@@ -216,20 +226,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildBottomButton() {
+    final s = AppSizing.of(context);
     if (_currentPage < 2) {
       return ElevatedButton(
         onPressed: _onNext,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFFC107),
           foregroundColor: const Color(0xFF5D4037),
-          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: s.spaceXl, vertical: s.buttonHeight),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: const Text(
+        child: Text(
           'Next →',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: s.fontLg, fontWeight: FontWeight.w600),
         ),
       );
     }
@@ -239,14 +250,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFFFFC107),
         foregroundColor: const Color(0xFF5D4037),
-        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+        padding: EdgeInsets.symmetric(horizontal: s.spaceXl, vertical: s.buttonHeight),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
       ),
-      child: const Text(
+      child: Text(
         'Get Started 🍌',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: s.fontLg, fontWeight: FontWeight.w600),
       ),
     );
   }
