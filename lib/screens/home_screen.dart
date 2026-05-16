@@ -3,24 +3,34 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/database_service.dart';
+import '../services/notification_service.dart';
 import '../services/nutrition_service.dart';
 import '../services/preferences_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final DatabaseService db;
+  final VoidCallback onToggleTheme;
 
-  const HomeScreen({super.key, required this.db});
+  const HomeScreen({
+    super.key,
+    required this.db,
+    required this.onToggleTheme,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   double _todayCount = 0.0;
   double _dailyGoal = 2.0;
+  int _streak = 0;
   bool _loading = true;
   String? _error;
   Timer? _undoTimer;
+  Timer? _midnightTimer;
+  String _lastLoadedDate = '';
+  TimeOfDay? _reminderTime;
   final _nutritionService = NutritionService();
 
   NutritionTotals get _nutrition => _nutritionService.calculate(_todayCount);
@@ -28,23 +38,64 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
+    _scheduleMidnightRefresh();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _undoTimer?.cancel();
+    _midnightTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _init() async {
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    if (todayStr == _lastLoadedDate) return;
+    _lastLoadedDate = todayStr;
+
     try {
       await widget.db.cleanupOldEntries();
       _dailyGoal = await PreferencesService().getDailyGoal();
+      _reminderTime = await PreferencesService().getReminderTime();
       await _loadToday();
+
+      if (_todayCount > 0) {
+        final streak = await widget.db.getStreak(_dailyGoal);
+        if (mounted) setState(() => _streak = streak);
+      } else {
+        final yesterday = now.subtract(const Duration(days: 1));
+        final yesterdayQualified =
+            await widget.db.hadGoalReachedOnDate(yesterday, _dailyGoal);
+        if (!yesterdayQualified && _todayCount < _dailyGoal) {
+          if (mounted) setState(() => _streak = 0);
+        }
+      }
     } catch (e) {
-      print('[HomeScreen] Init error: $e');
+      debugPrint('[HomeScreen] Init error: $e');
       if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  void _scheduleMidnightRefresh() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final timeUntilMidnight = tomorrow.difference(now);
+    _midnightTimer = Timer(timeUntilMidnight, () {
+      _init();
+      _scheduleMidnightRefresh();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _init();
     }
   }
 
@@ -58,14 +109,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _refreshStreak() async {
+    final streak = await widget.db.getStreak(_dailyGoal);
+    if (mounted) setState(() => _streak = streak);
+  }
+
   Future<void> _handleUndo() async {
     await widget.db.undoLastLog();
     final count = await widget.db.getTodayCount();
-    if (mounted) {
-      setState(() {
-        _todayCount = count;
-      });
-    }
+    if (mounted) setState(() => _todayCount = count);
+    await _refreshStreak();
   }
 
   void _showUndoSnackBar() {
@@ -160,6 +213,69 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showReminderDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Daily Reminder'),
+              content: _reminderTime != null
+                  ? Text(
+                      'Current reminder: ${_reminderTime!.format(context)}\nTap to change or remove.')
+                  : const Text(
+                      'Set a daily time to be reminded to log your bananas.'),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await NotificationService().scheduleTestNotification();
+                  },
+                  child: const Text('Test (5s)'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                if (_reminderTime != null)
+                  TextButton(
+                    onPressed: () async {
+                      await NotificationService().cancelReminder();
+                      await PreferencesService().clearReminderTime();
+                      if (mounted) {
+                        setState(() => _reminderTime = null);
+                      }
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    child: const Text('Remove'),
+                  ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    final picked = await showTimePicker(
+                      context: this.context,
+                      initialTime:
+                          _reminderTime ?? const TimeOfDay(hour: 9, minute: 0),
+                    );
+                    if (picked == null) return;
+                    await NotificationService()
+                        .scheduleDailyReminder(picked);
+                    await PreferencesService().setReminderTime(picked);
+                    if (mounted) {
+                      setState(() => _reminderTime = picked);
+                    }
+                  },
+                  child: Text(_reminderTime != null ? 'Change' : 'Set Reminder'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _logBanana(double amount) async {
     _showUndoSnackBar();
 
@@ -172,8 +288,9 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _todayCount = count;
       });
+      await _refreshStreak();
     } catch (e) {
-      print('[HomeScreen] Log banana error: $e');
+      debugPrint('[HomeScreen] Log banana error: $e');
     }
   }
 
@@ -201,7 +318,27 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            tooltip: Theme.of(context).brightness == Brightness.dark
+                ? 'Light mode'
+                : 'Dark mode',
+            onPressed: widget.onToggleTheme,
+          ),
+          IconButton(
+            icon: Icon(
+              _reminderTime != null
+                  ? Icons.notifications_active
+                  : Icons.notifications_none,
+            ),
+            tooltip: 'Daily Reminder',
+            onPressed: _showReminderDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.celebration),
             tooltip: 'Daily Goal',
             onPressed: _showGoalDialog,
           ),
@@ -248,66 +385,108 @@ class _HomeScreenState extends State<HomeScreen> {
             ? '🎉 Goal reached!'
             : '${_formatBananaCount(_todayCount)} / ${_formatBananaCount(_dailyGoal)} bananas';
 
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        return SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // 1. Count number
-            Text(
-              countText,
-              style: TextStyle(
-                fontSize: h * 0.12,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFFFFC107),
-              ),
-            ),
-
-            // 2. Progress bar
-            SizedBox(
-              width: w * 0.6,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  color: reached ? Colors.green : const Color(0xFFFFC107),
-                  backgroundColor:
-                      const Color(0xFFFFC107).withValues(alpha: 0.2),
-                ),
-              ),
-            ),
-
-            // 4. "X / Y bananas" label
-            Text(
-              goalLabel,
-              style: TextStyle(
-                fontSize: h * 0.018,
-                color: reached ? Colors.green : null,
-              ),
-            ),
-
-            // 5. Nutrition card
-            Flexible(
-              child: _buildNutritionCard(theme),
-            ),
-
-            // 6. Banana icons row
-            Row(
+            // 1–4. Counter + Progress + Nutrition (grouped)
+            Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildBananaButton(0.25, 'assets/images/quarter.png', w),
-                const SizedBox(width: 8),
-                _buildBananaButton(0.5, 'assets/images/half.png', w),
-                const SizedBox(width: 8),
-                _buildBananaButton(1.0, 'assets/images/full.png', w),
+                Text(
+                  countText,
+                  style: TextStyle(
+                    fontSize: h * 0.12,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFFFFC107),
+                  ),
+                ),
+                if (_streak > 0) ...[
+                  SizedBox(height: h * 0.004),
+                  Text(
+                    '🔥 $_streak day streak',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: h * 0.022,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFFFC107),
+                    ),
+                  ),
+                  SizedBox(height: h * 0.004),
+                ] else
+                  SizedBox(height: h * 0.001),
+                SizedBox(
+                  width: w * 0.6,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(w * 0.01),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: h * 0.007,
+                      color: reached ? Colors.green : const Color(0xFFFFC107),
+                      backgroundColor:
+                          const Color(0xFFFFC107).withValues(alpha: 0.2),
+                    ),
+                  ),
+                ),
+                SizedBox(height: h * 0.002),
+                Text(
+                  goalLabel,
+                  style: TextStyle(
+                    fontSize: h * 0.018,
+                    color: reached ? Colors.green : null,
+                  ),
+                ),
+                SizedBox(height: h * 0.03),
+                _buildNutritionCard(theme, w, h),
+                SizedBox(height: h * 0.06),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildBananaButton(0.25, 'assets/images/quarter.png', w, h),
+                        SizedBox(width: w * 0.001),
+                        _buildBananaButton(0.5, 'assets/images/half.png', w, h),
+                        SizedBox(width: w * 0.001),
+                        _buildBananaButton(1.0, 'assets/images/full.png', w, h),
+                      ],
+                    ),
+                    SizedBox(height: h * 0.015),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildPlaceholderButton(w, h),
+                        SizedBox(width: w * 0.02),
+                        _buildPlaceholderButton(w, h),
+                        SizedBox(width: w * 0.02),
+                        _buildPlaceholderButton(w, h),
+                      ],
+                    ),
+                    SizedBox(height: h * 0.015),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildPlaceholderButton(w, h),
+                        SizedBox(width: w * 0.02),
+                        _buildPlaceholderButton(w, h),
+                        SizedBox(width: w * 0.02),
+                        _buildPlaceholderButton(w, h),
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ),
+
           ],
-        );
+        ));
       },
     );
   }
 
-  Widget _buildBananaButton(double amount, String assetPath, double w) {
+  Widget _buildBananaButton(double amount, String assetPath, double w, double h) {
     final theme = Theme.of(context);
     return _ScaleTap(
       onTap: () => _logBanana(amount),
@@ -326,13 +505,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 fit: BoxFit.contain,
               ),
             ),
-            const SizedBox(height: 1),
-            Text(
-              _portionLabel(amount),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
+            SizedBox(height: h * 0.000001),
+            Transform.translate(
+              offset: Offset(0, -(w * 0.0125)),
+              child: Text(
+                _portionLabel(amount),
+                style: TextStyle(
+                  fontSize: h * 0.016,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
           ],
@@ -341,14 +523,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNutritionCard(ThemeData theme) {
+  Widget _buildPlaceholderButton(double w, double h) {
+    return Container(
+      width: w * 0.20,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: w * 0.20, height: w * 0.20),
+          SizedBox(height: h * 0.001),
+          Transform.translate(
+            offset: Offset(0, -(w * 0.0125)),
+            child: SizedBox(height: h * 0.016),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNutritionCard(ThemeData theme, double w, double h) {
     final n = _nutrition;
     final percent = _nutritionService.potassiumPercent(n.potassium);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
+      margin: EdgeInsets.symmetric(horizontal: w * 0.06),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: w * 0.035, vertical: h * 0.012),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -359,31 +558,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: h * 0.007),
             Row(
               children: [
                 Expanded(
                   child: _nutritionStat(
-                      'Calories', '${n.calories.toStringAsFixed(0)} kcal'),
+                      'Calories', '${n.calories.toStringAsFixed(0)} kcal', h),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: w * 0.03),
                 Expanded(
                   child: _nutritionStat('Potassium',
-                      '${n.potassium.toStringAsFixed(0)} mg\n($percent% DV)'),
+                      '${n.potassium.toStringAsFixed(0)} mg\n($percent% DV)', h),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: h * 0.005),
             Row(
               children: [
                 Expanded(
                   child: _nutritionStat(
-                      'Carbs', '${n.carbs.toStringAsFixed(0)} g'),
+                      'Carbs', '${n.carbs.toStringAsFixed(0)} g', h),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: w * 0.03),
                 Expanded(
                   child: _nutritionStat(
-                      'Sugar', '${n.sugar.toStringAsFixed(0)} g'),
+                      'Sugar', '${n.sugar.toStringAsFixed(0)} g', h),
                 ),
               ],
             ),
@@ -393,7 +592,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _nutritionStat(String label, String value) {
+  Widget _nutritionStat(String label, String value, double h) {
     final theme = Theme.of(context);
 
     return Column(
@@ -406,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen> {
             color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
           ),
         ),
-        const SizedBox(height: 1),
+        SizedBox(height: h * 0.001),
         Text(
           value,
           style: theme.textTheme.bodyMedium?.copyWith(

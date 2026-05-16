@@ -166,12 +166,44 @@ class DatabaseService {
     return weekly;
   }
 
-  Future<int> cleanupOldEntries() async {
+  Future<int> getStreak(double dailyGoal) async {
     final db = await database;
-    return db.rawDelete(
-      "DELETE FROM banana_logs WHERE date(eaten_at) < ?",
-      [_todayDate()],
+
+    final result = await db.rawQuery(
+      "SELECT DATE(eaten_at) AS day FROM banana_logs "
+      "GROUP BY DATE(eaten_at) "
+      "HAVING SUM(amount) >= ? "
+      "ORDER BY day DESC",
+      [dailyGoal],
     );
+
+    final qualifyingDays = result.map((r) => r['day'] as String).toSet();
+
+    int streak = 0;
+    DateTime d = DateTime.now();
+
+    while (qualifyingDays.contains(_dateKey(d))) {
+      streak++;
+      d = d.subtract(const Duration(days: 1));
+    }
+
+    return streak;
+  }
+
+  Future<bool> hadGoalReachedOnDate(DateTime date, double dailyGoal) async {
+    final db = await database;
+    final dateStr = _dateKey(date);
+    final result = await db.rawQuery(
+      'SELECT SUM(amount) AS total FROM banana_logs WHERE DATE(eaten_at) = ?',
+      [dateStr],
+    );
+    final total = result.first['total'];
+    return total != null && (total as num) >= dailyGoal;
+  }
+
+  Future<void> cleanupOldEntries() async {
+    // No cleanup needed. All historical records must be preserved
+    // for streak tracking, history screen, and nutrition summaries.
   }
 
   String _dateKey(DateTime d) =>

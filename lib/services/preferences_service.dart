@@ -1,13 +1,26 @@
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferencesService {
   static const _dailyGoalKey = 'daily_goal';
   static const _onboardingKey = 'has_seen_onboarding';
+  static const _themeModeKey = 'theme_mode';
+  static const _reminderTimeKey = 'reminder_time';
   static const double _defaultGoal = 2.0;
 
   PreferencesService._();
   static final PreferencesService _instance = PreferencesService._();
   factory PreferencesService() => _instance;
+
+  Future<String> getThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_themeModeKey) ?? 'system';
+  }
+
+  Future<void> setThemeMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeModeKey, mode);
+  }
 
   Future<double> getDailyGoal() async {
     final prefs = await SharedPreferences.getInstance();
@@ -27,5 +40,24 @@ class PreferencesService {
   Future<void> setOnboardingSeen() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_onboardingKey, true);
+  }
+
+  Future<TimeOfDay?> getReminderTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getString(_reminderTimeKey);
+    if (val == null) return null;
+    final parts = val.split(':');
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+  }
+
+  Future<void> setReminderTime(TimeOfDay time) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        _reminderTimeKey, '${time.hour}:${time.minute}');
+  }
+
+  Future<void> clearReminderTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_reminderTimeKey);
   }
 }

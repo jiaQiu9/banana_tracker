@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'services/database_service.dart';
+import 'services/notification_service.dart';
 import 'services/preferences_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/history_screen.dart';
@@ -23,24 +24,63 @@ void main() async {
   final hasSeenOnboarding = await prefsService.hasSeenOnboarding();
   final initialRoute = hasSeenOnboarding ? '/home' : '/onboarding';
 
+  final notificationService = NotificationService();
+  await notificationService.init();
+
+  final savedTheme = await prefsService.getThemeMode();
+  final initialThemeMode = switch (savedTheme) {
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
+
   runApp(BananaTrackerApp(
     db: db,
     prefsService: prefsService,
     initialRoute: initialRoute,
+    initialThemeMode: initialThemeMode,
   ));
 }
 
-class BananaTrackerApp extends StatelessWidget {
+class BananaTrackerApp extends StatefulWidget {
   final DatabaseService db;
   final PreferencesService prefsService;
   final String initialRoute;
+  final ThemeMode initialThemeMode;
 
   const BananaTrackerApp({
     super.key,
     required this.db,
     required this.prefsService,
     required this.initialRoute,
+    required this.initialThemeMode,
   });
+
+  @override
+  State<BananaTrackerApp> createState() => _BananaTrackerAppState();
+}
+
+class _BananaTrackerAppState extends State<BananaTrackerApp> {
+  late ThemeMode _themeMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeMode = widget.initialThemeMode;
+  }
+
+  void _toggleTheme() {
+    final systemBrightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    final effectiveIsDark = _themeMode == ThemeMode.dark ||
+        (_themeMode == ThemeMode.system &&
+            systemBrightness == Brightness.dark);
+    final newMode = effectiveIsDark ? ThemeMode.light : ThemeMode.dark;
+    widget.prefsService.setThemeMode(
+      newMode == ThemeMode.light ? 'light' : 'dark',
+    );
+    setState(() => _themeMode = newMode);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,13 +89,16 @@ class BananaTrackerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
-      themeMode: ThemeMode.system,
-      initialRoute: initialRoute,
+      themeMode: _themeMode,
+      initialRoute: widget.initialRoute,
       routes: {
-        '/home': (context) => HomeScreen(db: db),
+        '/home': (context) => HomeScreen(
+          db: widget.db,
+          onToggleTheme: _toggleTheme,
+        ),
         '/onboarding': (context) =>
-            OnboardingScreen(db: db, prefsService: prefsService),
-        '/history': (context) => HistoryScreen(db: db),
+            OnboardingScreen(db: widget.db, prefsService: widget.prefsService),
+        '/history': (context) => HistoryScreen(db: widget.db),
       },
     );
   }

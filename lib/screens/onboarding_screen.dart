@@ -54,6 +54,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   _buildWelcomeSlide(),
                   _buildHowToLogSlide(),
+                  _buildDailyGoalSlide(),
                 ],
               ),
             ),
@@ -105,27 +106,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(
-                'assets/images/full.png',
-                width: 80,
-                height: 80,
-              ),
-              const SizedBox(width: 16),
-              Image.asset(
-                'assets/images/half.png',
-                width: 80,
-                height: 80,
-              ),
-              const SizedBox(width: 16),
-              Image.asset(
-                'assets/images/quarter.png',
-                width: 80,
-                height: 80,
-              ),
-            ],
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/images/full.png',
+                  width: 80,
+                  height: 80,
+                ),
+                const SizedBox(width: 16),
+                Image.asset(
+                  'assets/images/half.png',
+                  width: 80,
+                  height: 80,
+                ),
+                const SizedBox(width: 16),
+                Image.asset(
+                  'assets/images/quarter.png',
+                  width: 80,
+                  height: 80,
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 32),
           Text(
@@ -151,12 +155,48 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  Widget _buildDailyGoalSlide() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.celebration,
+            size: 80,
+            color: Color(0xFFFFC107),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Set Your Daily Goal',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Tap the 🎉 icon to set how many bananas\nyou want to eat each day. Track your\nprogress with the bar below your count —\nit turns green when you hit your goal!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDotIndicators() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(2, (index) {
+        children: List.generate(3, (index) {
           final isActive = index == _currentPage;
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
@@ -176,7 +216,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildBottomButton() {
-    if (_currentPage == 0) {
+    if (_currentPage < 2) {
       return ElevatedButton(
         onPressed: _onNext,
         style: ElevatedButton.styleFrom(
