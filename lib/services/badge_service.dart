@@ -36,12 +36,8 @@ class BadgeService {
         !unlocked.contains('total_100') ||
         !unlocked.contains('total_365') ||
         !unlocked.contains('first_banana');
-    final needsToday = !unlocked.contains('first_banana');
-
     final double totalCount =
         needsTotal ? await db.getTotalBananaCount() : 0.0;
-    final double todayCount =
-        needsToday ? await db.getTodayCount() : 0.0;
 
     void unlock(String tag) {
       unlocked.add(tag);
@@ -51,7 +47,7 @@ class BadgeService {
 
     // first_banana
     if (!unlocked.contains('first_banana')) {
-      if (todayCount > 0 || totalCount >= 1) {
+      if ( totalCount >= 1) {
         unlock('first_banana');
       }
     }

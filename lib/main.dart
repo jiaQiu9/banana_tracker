@@ -7,6 +7,7 @@ import 'services/database_service.dart';
 import 'services/notification_service.dart';
 import 'services/preferences_service.dart';
 import 'screens/home_screen.dart';
+import 'screens/badge_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/onboarding_screen.dart';
 
@@ -108,6 +109,8 @@ class _BananaTrackerAppState extends State<BananaTrackerApp> {
             OnboardingScreen(db: widget.db, prefsService: widget.prefsService),
         '/history': (context) => HistoryScreen(
           db: widget.db,
+        ),
+        '/badges': (context) => BadgeScreen(
           badgeService: widget.badgeService,
         ),
       },

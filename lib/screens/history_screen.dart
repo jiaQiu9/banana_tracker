@@ -1,16 +1,13 @@
-import 'package:flutter/material.dart' hide Badge;
-import '../badges/badge_registry.dart';
+import 'package:flutter/material.dart';
 import '../models/banana_entry.dart';
-import '../services/badge_service.dart';
 import '../services/database_service.dart';
 import '../services/nutrition_service.dart';
 import '../utils/sizing.dart';
 
 class HistoryScreen extends StatefulWidget {
   final DatabaseService db;
-  final BadgeService badgeService;
 
-  const HistoryScreen({super.key, required this.db, required this.badgeService});
+  const HistoryScreen({super.key, required this.db});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -22,7 +19,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String? _error;
   late DateTime _selectedMonth;
   final _nutritionService = NutritionService();
-  Set<String> _unlockedBadges = {};
 
   double get _monthTotalCount {
     if (_monthEntries == null) return 0.0;
@@ -39,12 +35,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month, 1);
     _loadMonthData();
-    _loadBadges();
-  }
-
-  Future<void> _loadBadges() async {
-    final unlocked = await widget.badgeService.getUnlockedTags();
-    if (mounted) setState(() => _unlockedBadges = unlocked);
   }
 
   Future<void> _loadMonthData() async {
@@ -116,7 +106,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         SizedBox(height: s.spaceLg),
                         _buildMonthlyCalendar(theme),
                         SizedBox(height: s.spaceLg),
-                        _buildBadgesSection(theme),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.pushNamed(context, '/badges'),
+                            icon: const Icon(Icons.emoji_events),
+                            label: const Text('View Badges'),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -348,133 +344,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildBadgesSection(ThemeData theme) {
-    final s = AppSizing.of(context);
-    final crossAxisCount = 4;
-    final badgeSize = (s.w - s.spaceMd * 2 - s.spaceSm * (crossAxisCount - 1)) /
-        crossAxisCount;
-    final imageSize = badgeSize * 0.55;
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: EdgeInsets.all(s.spaceMd),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.emoji_events,
-                    color: theme.colorScheme.primary, size: s.iconSm),
-                SizedBox(width: s.spaceSm),
-                Text('Badges',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-              ],
-            ),
-            SizedBox(height: s.spaceMd),
-            GridView.count(
-              crossAxisCount: crossAxisCount,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: s.spaceSm,
-              crossAxisSpacing: s.spaceSm,
-              children: BadgeRegistry.all.map((badge) {
-                final unlocked = _unlockedBadges.contains(badge.tag);
-                return GestureDetector(
-                  onTap: () => _showBadgeDetailDialog(badge, unlocked),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: imageSize,
-                        height: imageSize,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Opacity(
-                              opacity: unlocked ? 1.0 : 0.25,
-                              child: Image.asset(
-                                'assets/badges/${badge.tag}.png',
-                                width: imageSize,
-                                height: imageSize,
-                                errorBuilder: (_, _, _) => Icon(
-                                  Icons.emoji_events,
-                                  size: imageSize,
-                                  color: unlocked
-                                      ? const Color(0xFFFFC107)
-                                      : theme.colorScheme.onSurface,
-                                ),
-                              ),
-                            ),
-                            if (!unlocked)
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Icon(
-                                  Icons.lock,
-                                  size: s.fontXs * 0.8,
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.5),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: s.spaceXs),
-                      Text(
-                        badge.name,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: s.fontXs,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showBadgeDetailDialog(BadgeDefinition badge, bool unlocked) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(badge.name),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(badge.description),
-              const SizedBox(height: 12),
-              Text(
-                unlocked ? 'Unlocked ✓' : 'Not yet unlocked 🔒',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: unlocked ? Colors.green : null,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
     );
   }
 

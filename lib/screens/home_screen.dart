@@ -41,7 +41,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   double _thisWeekTotal = 0;
   double _lastWeekTotal = 0;
   final _nutritionService = NutritionService();
-  Set<String> _unlockedBadges = {};
   bool _hasEverReachedGoal = false;
   int _goalStreakDays = 0;
   String? _lastGoalMetDate;
@@ -70,8 +69,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       hasEverReachedGoal: _hasEverReachedGoal,
       goalStreakDays: _goalStreakDays,
     );
-    final unlocked = await widget.badgeService.getUnlockedTags();
-    if (mounted) setState(() => _unlockedBadges = unlocked);
   }
 
   String _todayDateKey() => DateTime.now().toIso8601String().split('T')[0];
@@ -463,8 +460,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         goalStreakDays: _goalStreakDays,
       );
       if (newBadges.isNotEmpty) {
-        _unlockedBadges = await widget.badgeService.getUnlockedTags();
-        if (mounted) setState(() {});
         if (mounted) _showBadgeUnlockPopup(newBadges);
       }
     } catch (e) {
@@ -488,85 +483,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _showBadgeDetailDialog(BadgeDefinition badge, bool unlocked) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(badge.name),
-          content: Text(unlocked ? badge.description : 'Not yet unlocked'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildBadgeTray(AppSizing s) {
-    final theme = Theme.of(context);
-    final badgeDiameter = s.iconMd;
-    final trayHeight = s.iconXl * 1.4;
-    final pad = s.spaceXs;
-
-    return SizedBox(
-      height: trayHeight,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: s.spaceSm),
-        child: Row(
-          children: BadgeRegistry.all.map((badge) {
-            final unlocked = _unlockedBadges.contains(badge.tag);
-            return GestureDetector(
-              onTap: () => _showBadgeDetailDialog(badge, unlocked),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: pad),
-                child: SizedBox(
-                  width: badgeDiameter,
-                  height: trayHeight,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Opacity(
-                        opacity: unlocked ? 1.0 : 0.3,
-                        child: Image.asset(
-                          'assets/badges/${badge.tag}.png',
-                          width: badgeDiameter,
-                          height: badgeDiameter,
-                          errorBuilder: (_, _, _) => Icon(
-                            Icons.emoji_events,
-                            size: badgeDiameter,
-                            color: unlocked
-                                ? const Color(0xFFFFC107)
-                                : theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      if (!unlocked)
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Icon(
-                            Icons.lock,
-                            size: s.fontXs,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.5),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
   String _formatBananaCount(double count) {
     if (count == count.truncateToDouble()) {
       return count.toInt().toString();
@@ -587,6 +503,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.emoji_events),
+          tooltip: 'Badges',
+          onPressed: () => Navigator.pushNamed(context, '/badges'),
+        ),
         title: const Text('Banana Tracker'),
         centerTitle: true,
         actions: [
@@ -666,9 +587,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   SizedBox(height: h * 0.001),
                 SizedBox(height: s.spaceSm),
                 _buildWeeklyTrendLine(s),
-                SizedBox(height: h * 0.006),
-                _buildBadgeTray(s),
-                SizedBox(height: h * 0.006),
+                SizedBox(height: s.spaceSm),
                 SizedBox(
                   width: w * 0.6,
                   child: ClipRRect(
