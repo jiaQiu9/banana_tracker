@@ -1,7 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Badge;
 
+import '../badges/badge_registry.dart';
+import '../services/badge_service.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
 import '../services/nutrition_service.dart';
@@ -10,11 +12,15 @@ import '../utils/sizing.dart';
 
 class HomeScreen extends StatefulWidget {
   final DatabaseService db;
+  final PreferencesService prefsService;
+  final BadgeService badgeService;
   final VoidCallback onToggleTheme;
 
   const HomeScreen({
     super.key,
     required this.db,
+    required this.prefsService,
+    required this.badgeService,
     required this.onToggleTheme,
   });
 
@@ -35,6 +41,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   double _thisWeekTotal = 0;
   double _lastWeekTotal = 0;
   final _nutritionService = NutritionService();
+  Set<String> _unlockedBadges = {};
+  bool _hasEverReachedGoal = false;
+  int _goalStreakDays = 0;
+  String? _lastGoalMetDate;
 
   NutritionTotals get _nutrition => _nutritionService.calculate(_todayCount);
 
@@ -42,9 +52,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _init();
-    _loadWeeklyTrend();
+    _initialize();
     _scheduleMidnightRefresh();
+  }
+
+  Future<void> _initialize() async {
+    await _init();
+    await _loadWeeklyTrend();
+    _hasEverReachedGoal = await widget.prefsService.getHasEverReachedGoal();
+    _goalStreakDays = await widget.prefsService.getGoalStreakDays();
+    _lastGoalMetDate = await widget.prefsService.getLastGoalMetDate();
+    await _checkGoalStreakReset();
+    await widget.badgeService.checkAndUnlock(
+      widget.db,
+      widget.prefsService,
+      _streak,
+      hasEverReachedGoal: _hasEverReachedGoal,
+      goalStreakDays: _goalStreakDays,
+    );
+    final unlocked = await widget.badgeService.getUnlockedTags();
+    if (mounted) setState(() => _unlockedBadges = unlocked);
+  }
+
+  String _todayDateKey() => DateTime.now().toIso8601String().split('T')[0];
+
+  Future<void> _checkGoalStreakReset() async {
+    final today = _todayDateKey();
+    final yesterday = DateTime.now()
+        .subtract(const Duration(days: 1))
+        .toIso8601String()
+        .split('T')[0];
+    if (_lastGoalMetDate != null &&
+        _lastGoalMetDate != today &&
+        _lastGoalMetDate != yesterday) {
+      _goalStreakDays = 0;
+      await widget.prefsService.setGoalStreakDays(0);
+    }
   }
 
   @override
@@ -61,6 +104,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     if (todayStr == _lastLoadedDate) return;
     _lastLoadedDate = todayStr;
+
+    await _checkGoalStreakReset();
 
     try {
       await widget.db.cleanupOldEntries();
@@ -386,9 +431,140 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       });
       await _refreshStreak();
       await _loadWeeklyTrend();
+
+      final goalMet = _todayCount >= _dailyGoal;
+      if (goalMet) {
+        if (!_hasEverReachedGoal) {
+          _hasEverReachedGoal = true;
+          await widget.prefsService.setHasEverReachedGoal(true);
+        }
+        final today = _todayDateKey();
+        if (_lastGoalMetDate != today) {
+          final yesterday = DateTime.now()
+              .subtract(const Duration(days: 1))
+              .toIso8601String()
+              .split('T')[0];
+          if (_lastGoalMetDate == yesterday) {
+            _goalStreakDays++;
+          } else {
+            _goalStreakDays = 1;
+          }
+          _lastGoalMetDate = today;
+          await widget.prefsService.setGoalStreakDays(_goalStreakDays);
+          await widget.prefsService.setLastGoalMetDate(today);
+        }
+      }
+
+      final newBadges = await widget.badgeService.checkAndUnlock(
+        widget.db,
+        widget.prefsService,
+        _streak,
+        hasEverReachedGoal: _hasEverReachedGoal,
+        goalStreakDays: _goalStreakDays,
+      );
+      if (newBadges.isNotEmpty) {
+        _unlockedBadges = await widget.badgeService.getUnlockedTags();
+        if (mounted) setState(() {});
+        if (mounted) _showBadgeUnlockPopup(newBadges);
+      }
     } catch (e) {
       debugPrint('[HomeScreen] Log banana error: $e');
     }
+  }
+
+  Future<void> _showBadgeUnlockPopup(List<String> tags) async {
+    final s = AppSizing.of(context);
+    for (final tag in tags) {
+      if (!mounted) return;
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(s.w * 0.05)),
+        ),
+        builder: (ctx) => _BadgeUnlockSheetContent(tag: tag),
+      );
+    }
+  }
+
+  void _showBadgeDetailDialog(BadgeDefinition badge, bool unlocked) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(badge.name),
+          content: Text(unlocked ? badge.description : 'Not yet unlocked'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBadgeTray(AppSizing s) {
+    final theme = Theme.of(context);
+    final badgeDiameter = s.iconMd;
+    final trayHeight = s.iconXl * 1.4;
+    final pad = s.spaceXs;
+
+    return SizedBox(
+      height: trayHeight,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: s.spaceSm),
+        child: Row(
+          children: BadgeRegistry.all.map((badge) {
+            final unlocked = _unlockedBadges.contains(badge.tag);
+            return GestureDetector(
+              onTap: () => _showBadgeDetailDialog(badge, unlocked),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: pad),
+                child: SizedBox(
+                  width: badgeDiameter,
+                  height: trayHeight,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Opacity(
+                        opacity: unlocked ? 1.0 : 0.3,
+                        child: Image.asset(
+                          'assets/badges/${badge.tag}.png',
+                          width: badgeDiameter,
+                          height: badgeDiameter,
+                          errorBuilder: (_, _, _) => Icon(
+                            Icons.emoji_events,
+                            size: badgeDiameter,
+                            color: unlocked
+                                ? const Color(0xFFFFC107)
+                                : theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (!unlocked)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Icon(
+                            Icons.lock,
+                            size: s.fontXs,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   String _formatBananaCount(double count) {
@@ -490,6 +666,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   SizedBox(height: h * 0.001),
                 SizedBox(height: s.spaceSm),
                 _buildWeeklyTrendLine(s),
+                SizedBox(height: h * 0.006),
+                _buildBadgeTray(s),
+                SizedBox(height: h * 0.006),
                 SizedBox(
                   width: w * 0.6,
                   child: ClipRRect(
@@ -763,6 +942,102 @@ class _ScaleTapState extends State<_ScaleTap>
           child: child,
         ),
         child: widget.child,
+      ),
+    );
+  }
+}
+
+class _BadgeUnlockSheetContent extends StatefulWidget {
+  final String tag;
+  const _BadgeUnlockSheetContent({required this.tag});
+
+  @override
+  State<_BadgeUnlockSheetContent> createState() =>
+      _BadgeUnlockSheetContentState();
+}
+
+class _BadgeUnlockSheetContentState extends State<_BadgeUnlockSheetContent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 400),
+  );
+  late final Animation<Offset> _slide = Tween<Offset>(
+    begin: const Offset(0, 0.3),
+    end: Offset.zero,
+  ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final s = AppSizing.of(context);
+    final badge = BadgeRegistry.all.firstWhere(
+      (b) => b.tag == widget.tag,
+      orElse: () => BadgeDefinition(
+        tag: widget.tag,
+        name: widget.tag,
+        description: '',
+        assetPath: '',
+      ),
+    );
+
+    return SlideTransition(
+      position: _slide,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            s.spaceMd, s.spaceSm, s.spaceMd, s.spaceMd),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/badges/${widget.tag}.png',
+              width: s.iconXl,
+              height: s.iconXl,
+              errorBuilder: (_, _, _) => Icon(
+                Icons.emoji_events,
+                size: s.iconXl,
+                color: const Color(0xFFFFC107),
+              ),
+            ),
+            SizedBox(height: s.spaceMd),
+            Text(
+              badge.name,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: s.font2xl,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            SizedBox(height: s.spaceXs),
+            Text(
+              badge.description,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: s.fontSm,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            SizedBox(height: s.spaceMd),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Nice!'),
+            ),
+            SizedBox(height: s.spaceSm),
+          ],
+        ),
       ),
     );
   }

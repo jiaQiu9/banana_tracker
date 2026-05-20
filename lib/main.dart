@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'services/badge_service.dart';
 import 'services/database_service.dart';
 import 'services/notification_service.dart';
 import 'services/preferences_service.dart';
@@ -27,6 +28,8 @@ void main() async {
   final notificationService = NotificationService();
   await notificationService.init();
 
+  final badgeService = BadgeService();
+
   final savedTheme = await prefsService.getThemeMode();
   final initialThemeMode = switch (savedTheme) {
     'light' => ThemeMode.light,
@@ -37,6 +40,7 @@ void main() async {
   runApp(BananaTrackerApp(
     db: db,
     prefsService: prefsService,
+    badgeService: badgeService,
     initialRoute: initialRoute,
     initialThemeMode: initialThemeMode,
   ));
@@ -45,6 +49,7 @@ void main() async {
 class BananaTrackerApp extends StatefulWidget {
   final DatabaseService db;
   final PreferencesService prefsService;
+  final BadgeService badgeService;
   final String initialRoute;
   final ThemeMode initialThemeMode;
 
@@ -52,6 +57,7 @@ class BananaTrackerApp extends StatefulWidget {
     super.key,
     required this.db,
     required this.prefsService,
+    required this.badgeService,
     required this.initialRoute,
     required this.initialThemeMode,
   });
@@ -94,11 +100,16 @@ class _BananaTrackerAppState extends State<BananaTrackerApp> {
       routes: {
         '/home': (context) => HomeScreen(
           db: widget.db,
+          prefsService: widget.prefsService,
+          badgeService: widget.badgeService,
           onToggleTheme: _toggleTheme,
         ),
         '/onboarding': (context) =>
             OnboardingScreen(db: widget.db, prefsService: widget.prefsService),
-        '/history': (context) => HistoryScreen(db: widget.db),
+        '/history': (context) => HistoryScreen(
+          db: widget.db,
+          badgeService: widget.badgeService,
+        ),
       },
     );
   }

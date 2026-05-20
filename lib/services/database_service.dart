@@ -87,6 +87,15 @@ class DatabaseService {
     return (total as num?)?.toDouble() ?? 0.0;
   }
 
+  Future<double> getTotalBananaCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      "SELECT SUM(amount) AS total FROM banana_logs",
+    );
+    final total = result.first['total'];
+    return (total as num?)?.toDouble() ?? 0.0;
+  }
+
   Future<List<BananaEntry>> getHistory({int days = 30}) async {
     final db = await database;
     final end = DateTime.now();
