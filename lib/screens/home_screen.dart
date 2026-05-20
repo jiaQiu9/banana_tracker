@@ -508,7 +508,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           tooltip: 'Badges',
           onPressed: () => Navigator.pushNamed(context, '/badges'),
         ),
-        title: const Text('Banana Tracker'),
+        title: const Text(''),
         centerTitle: true,
         actions: [
           IconButton(
