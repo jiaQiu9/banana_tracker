@@ -132,7 +132,7 @@ class NotificationService {
 
   Future<void> scheduleTestNotification() async {
     final scheduled =
-        tz.TZDateTime.now(tz.local).add(const Duration(seconds: 30));
+        tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5));
     debugPrint('[Notifications] Test firing at: $scheduled');
     await _plugin.zonedSchedule(
       id: _testId,

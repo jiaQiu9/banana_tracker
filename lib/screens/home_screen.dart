@@ -361,9 +361,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               actions: [
                 Visibility(
                   visible: false,
-                  maintainState: true,
-                  maintainAnimation: true,
-                  maintainSize: true,
                   child: TextButton(
                     onPressed: () async {
                       Navigator.pop(context);
